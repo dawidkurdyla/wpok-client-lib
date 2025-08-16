@@ -27,7 +27,7 @@ async function createSingle(client, manifest) {
     await client.rcl.sAdd(`work:${workId}:tasks`, taskId);
     await client.amqp.publish(taskId, queue)
 
-    return { taskId };
+    return taskId;
 }
 
 /**
