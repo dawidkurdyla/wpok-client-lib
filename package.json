@@ -1,5 +1,5 @@
 {
-  "name": "@hyperflow/job-executor-lib",
+  "name": "@wpok/client-lib",
   "version": "0.1.0",
   "description": "Client library for WPOK, serverless worker-pool on kubernetes: batching over S3, task submission (Redis+AMQP), and work watching.",
   "license": "ISC",

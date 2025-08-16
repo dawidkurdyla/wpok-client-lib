@@ -19,6 +19,7 @@ const { planBatch } = require('./batching/expand');
 const { waitForTask, waitForMany, watchWork } = require('./watch/wait');
 const { parseS3Url } = require('./storage/s3');
 const { generateWorkId, generateTaskId } = require('./utils/ids');
+const { validateManifest, assertValidManifest } = require('./schema/validate');
 
 class TaskClient extends EventEmitter {
     /**
@@ -84,5 +85,8 @@ module.exports = {
 
     parseS3Url,
     generateWorkId,
-    generateTaskId
+    generateTaskId,
+
+    validateManifest,
+    assertValidManifest
 };

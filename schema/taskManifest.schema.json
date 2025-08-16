@@ -32,6 +32,20 @@
           "input_dir":  { "type": "string" },
           "output_dir": { "type": "string" },
   
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name":            { "type": "string", "minLength": 1 },
+                "workflow_input":  { "type": "boolean", "default": true }
+              },
+              "additionalProperties": false
+            },
+            "default": []
+          },
+  
           "outputs": {
             "type": "array",
             "items": {
@@ -49,11 +63,9 @@
   
           "io": {
             "type": "object",
-            "required": ["inputs", "output"],
             "properties": {
               "inputs": {
                 "type": "array",
-                "minItems": 1,
                 "items": {
                   "type": "object",
                   "oneOf": [
@@ -84,7 +96,8 @@
                       "additionalProperties": false
                     }
                   ]
-                }
+                },
+                "default": []
               },
   
               "output": {
