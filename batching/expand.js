@@ -32,7 +32,7 @@ async function* planBatch(spec) {
     }
 
     if (inputs.length === 0) {
-        throw new Error(`spec.io.batch.enabled=true, ale spec.io.inputs jest puste`);
+        throw new Error(`spec.io.batch.enabled=true, but spec.io.inputs is empty`);
     }
 
     // Assume the first input as the base (MVP — we’ll extend later if needed).

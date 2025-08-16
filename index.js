@@ -2,54 +2,39 @@
 
 /**
  * Public facade for the WPOK client library.
- * - Minimal TaskClient that exposes Redis + AMQP connectors.
- * - High-level batch API: createSingle/createBatch/planBatch.
+ * - Minimal TaskClient that exposes Redis + AMQP connectors + RedisConnector (lazy-run).
+ * - High-level submit API: createSingle/createBatch/planBatch.
+ * - Watch API: waitForTask, waitForMany, watchWork.
  * - S3 helpers re-export (parseS3Url).
- *
- * Implementation details (S3 listing, batching, building task messages)
- * lives in modules: storage/*, batching/*, submit/*, utils/*.
  */
 
 const redis = require('redis');
 const EventEmitter = require('events');
 
-const AmqpConnector = require('./amqpConnector');
+const AmqpConnector = require('./connectors/amqpConnector');
+const RedisConnector = require('./connectors/redisConnector');
 
-// High-level batch API
 const { createSingle, createBatch } = require('./submit/submit');
 const { planBatch } = require('./batching/expand');
-
-// S3 helpers
+const { waitForTask, waitForMany, watchWork } = require('./watch/wait');
 const { parseS3Url } = require('./storage/s3');
-
-// Public ID helpers
 const { generateWorkId, generateTaskId } = require('./utils/ids');
 
-/**
- * TaskClient
- *  - holds connections to Redis and AMQP
- *  - exposes them to high-level functions
- */
 class TaskClient extends EventEmitter {
     /**
-     * @param {string} workId     Logical batch/group identifier
-     * @param {string} redisURL   e.g. redis://127.0.0.1:6379
-     * @param {string} rabbitURL  e.g. amqp://user:pass@127.0.0.1:5672
+     * @param {string} workId
+     * @param {string} redisURL
+     * @param {string} rabbitURL
      */
-    constructor(workId, redisURL = 'redis://127.0.0.1:6379', rabbitURL = 'amqp://user:pass@127.0.0.1:5672') {
+    constructor(workId = null, redisURL = 'redis://127.0.0.1:6379', rabbitURL = 'amqp://user:pass@127.0.0.1:5672') {
         super();
 
-        if (!workId || typeof workId !== 'string') {
-            throw new Error('TaskClient requires a non-empty workId (string).');
-        }
-
-        this.workId = workId;
+        this.workId = workId || generateWorkId();
 
         this.rcl = redis.createClient({ url: redisURL });
         this.rcl.on('error', (err) => console.error('[redis] client error:', err));
-        this.amqp = new AmqpConnector(rabbitURL);
 
-        (async () => {
+        this._ready = (async () => {
             try {
                 await this.rcl.connect();
             } catch (err) {
@@ -57,15 +42,29 @@ class TaskClient extends EventEmitter {
             }
         })();
 
+        this.amqp = new AmqpConnector(rabbitURL);
+        this.redisConnector = new RedisConnector(this.rcl, this.workId, 1000);
+        this._connectorRunning = false;
+    }
+
+    async ready() {
+        await this._ready;
+    }
+
+    _ensureConnector() {
+        if (!this._connectorRunning) {
+            void this.redisConnector.run();
+            this._connectorRunning = true;
+        }
     }
 
     /**
      * Gracefully close resources.
-     * Safe to call multiple times.
      */
     async close() {
-        try { if (this.amqp && typeof this.amqp.close === 'function') await this.amqp.close(); } catch (_) {}
-        try { if (this.rcl  && typeof this.rcl.quit === 'function')  await this.rcl.quit(); }  catch (_) {}
+        await this.redisConnector.stop();
+        await this.amqp.close();
+        await this.rcl.quit();
     }
 }
 
@@ -73,15 +72,17 @@ class TaskClient extends EventEmitter {
 module.exports = {
     TaskClient,
 
-    // High-level batch API
+    // Submit / batching
     createSingle,
     createBatch,
     planBatch,
 
-    // S3 helper (parsing canonical s3:// URL)
-    parseS3Url,
+    // Watch
+    waitForTask,
+    waitForMany,
+    watchWork,
 
-    // ID helpers (useful when integrating programmatically)
+    parseS3Url,
     generateWorkId,
     generateTaskId
 };

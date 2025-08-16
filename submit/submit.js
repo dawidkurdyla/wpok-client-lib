@@ -4,23 +4,13 @@ const { generateWorkId, generateTaskId } = require('../utils/ids');
 const { planBatch } = require('../batching/expand');
 const { buildTaskMsgFromPlan } = require('./buildTaskMsg');
 
-/**
- * Helper: publish with backpressure if available (publishBurst), otherwise regular publish.
- */
-async function publishWithDrain(amqp, queueName, payload) {
-    if (typeof amqp.publishBurst === 'function') {
-        return amqp.publishBurst(queueName, payload);
-    }
-    // Fallback – your current publish method
-    return amqp.publish(payload, queueName);
-}
 
 /**
  * Single: we don't list S3 on the client side — the executor will perform preRun based on spec.io.
  */
 async function createSingle(client, manifest) {
     const spec = manifest.spec ?? manifest;
-    const workId = manifest?.metadata?.workId || generateWorkId('solo');
+    const workId = manifest?.metadata?.workId || client.workId
     const queue = spec.taskType;
     const taskId = generateTaskId(workId);
 
@@ -34,7 +24,8 @@ async function createSingle(client, manifest) {
 
     await client.amqp.checkQueueOrThrow(queue);
     await client.rcl.lPush(`${taskId}_msg`, JSON.stringify(msg));
-    await publishWithDrain(client.amqp, queue, taskId);
+    await client.rcl.sAdd(`work:${workId}:tasks`, taskId);
+    await client.amqp.publish(taskId, queue)
 
     return { taskId };
 }
@@ -46,7 +37,7 @@ async function createSingle(client, manifest) {
 async function createBatch(client, manifest, { ratePerSec, stopOnError = false } = {}) {
     const spec = manifest.spec ?? manifest;
     const queue = spec.taskType;
-    const workId = manifest?.metadata?.workId || generateWorkId();
+    const workId = manifest?.metadata?.workId || client.workId
 
     await client.amqp.checkQueueOrThrow(queue);
 
@@ -57,9 +48,7 @@ async function createBatch(client, manifest, { ratePerSec, stopOnError = false }
     for await (const planItem of planBatch(spec)) {
         const taskId = generateTaskId(workId);
         const msg = buildTaskMsgFromPlan(spec, planItem, taskId);
-
-        await client.rcl.lPush(`${taskId}_msg`, JSON.stringify(msg));
-
+        
         // Optional simple QPS limiter
         if (ratePerSec) {
             const now = Date.now();
@@ -75,13 +64,16 @@ async function createBatch(client, manifest, { ratePerSec, stopOnError = false }
             }
             tokens -= 1;
         }
-
+        await client.rcl.lPush(`${taskId}_msg`, JSON.stringify(msg));
+        await client.rcl.sAdd(`work:${workId}:tasks`, taskId);
+        
         try {
             await client.amqp.publishBurst(queue, taskId);
             results.push({ taskId, source: planItem.source });
         } catch (err) {
             // rollback Redis message so it doesn't remain "orphaned"
             try { await client.rcl.del(`${taskId}_msg`); } catch (_e) {}
+            try { await client.rcl.sRem(`work:${workId}:tasks`, taskId); } catch {}
             const rec = { taskId, source: planItem.source, error: err };
             results.push(rec);
             if (stopOnError) throw err;

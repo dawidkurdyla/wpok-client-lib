@@ -14,7 +14,7 @@ class RedisConnector {
         this.taskPromiseResolves = {};
         this.rcl = redisClient;
         this.running = false;
-        this.completedNotificationQueueKey = "work:" + workId + ":tasksPendingCompletionHandling";
+        this.completedNotificationQueueKey = "wf:" + workId + ":tasksPendingCompletionHandling";
         this.checkInterval = checkInterval;
         this._sleepHandle = null;
     }
@@ -115,6 +115,29 @@ class RedisConnector {
         }
 
         return;
+    }
+
+    /**
+     * Peek task exit code (non-consuming). Returns string or null.
+     */
+    async peekExitCode(taskId) {
+        try {
+            return await this.rcl.sRandMember(taskId);
+        } catch (e) {
+            console.error("[RedisConnector] peekExitCode error for", taskId, e);
+            return null;
+        }
+    }
+
+    /**
+     * Cancel waiting for a given taskId (used on timeout to avoid leaking resolver).
+     */
+    cancelWait(taskId) {
+        if (this.taskPromiseResolves[taskId] !== undefined) {
+            delete this.taskPromiseResolves[taskId];
+            return true;
+        }
+        return false;
     }
 
     /**
