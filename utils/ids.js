@@ -6,13 +6,18 @@ function generateWorkId(provided) {
     if (provided && typeof provided === 'string') return provided;
     const ts = Date.now();
     const rnd = crypto.randomBytes(3).toString('hex');
-    return `batch-${ts}-${rnd}`;
+    return `${ts}-${rnd}`;
 }
 
 function generateTaskId(workId) {
     const ts = Date.now();
     const rnd = crypto.randomBytes(4).toString('hex');
-    return `work:${workId}:task:${ts}-${rnd}`;
+    return `wf:${workId}:task:${ts}-${rnd}`;
 }
 
-module.exports = { generateWorkId, generateTaskId };
+function extractWorkId(taskId) {
+    const m = /^wf:([^:]+):task:/.exec(taskId);
+    return m ? m[1] : null
+  }
+
+module.exports = { generateWorkId, generateTaskId, extractWorkId };
