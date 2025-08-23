@@ -1,7 +1,7 @@
 'use strict';
 
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
-const minimatch = require('minimatch');
+const { minimatch } = require('minimatch')
 
 function bool(value, def = false) {
     if (value === undefined || value === null) return def;
