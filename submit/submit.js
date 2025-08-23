@@ -79,8 +79,8 @@ async function createBatch(client, manifest, { ratePerSec, stopOnError = false }
             if (stopOnError) throw err;
         }
     }
-
-    return { workId, tasks: results };
+    
+    return { workId, tasks: results.map(t => t.taskId) };
 }
 
 module.exports = { createSingle, createBatch };
