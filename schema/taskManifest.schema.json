@@ -110,14 +110,7 @@
                       "type": { "type": "string", "const": "s3" },
                       "url":  { "type": "string", "pattern": "^s3://[^/]+/.+/$" },
                       "overwrite": { "type": "boolean", "default": false },
-                      "layout": {
-                        "type": "object",
-                        "properties": {
-                          "type": { "type": "string", "enum": ["flat", "mirror"], "default": "flat" },
-                          "prefix": { "type": "string" }
-                        },
-                        "additionalProperties": false
-                      }
+                      "layout": { "type": "string" }
                     },
                     "additionalProperties": false
                   }
