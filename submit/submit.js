@@ -25,7 +25,9 @@ async function createSingle(client, manifest) {
     await client.amqp.checkQueueOrThrow(queue);
     await client.rcl.lPush(`${taskId}_msg`, JSON.stringify(msg));
     await client.rcl.sAdd(`work:${workId}:tasks`, taskId);
-    await client.amqp.publish(taskId, queue)
+
+    const payload = JSON.stringify({ tasks: [ { id: taskId, message: null } ] });      // message for compatibility with HyperFlow Executor
+    await client.amqp.publish(payload, queue);
 
     return taskId;
 }
@@ -68,7 +70,8 @@ async function createBatch(client, manifest, { ratePerSec, stopOnError = false }
         await client.rcl.sAdd(`work:${workId}:tasks`, taskId);
         
         try {
-            await client.amqp.publishBurst(queue, taskId);
+            const payload = JSON.stringify({ tasks: [ { id: taskId, message: null } ] });      // message for compatibility with HyperFlow Executor
+            await client.amqp.publishBurst(queue, payload);
             results.push({ taskId, source: planItem.source });
         } catch (err) {
             // rollback Redis message so it doesn't remain "orphaned"
@@ -79,7 +82,7 @@ async function createBatch(client, manifest, { ratePerSec, stopOnError = false }
             if (stopOnError) throw err;
         }
     }
-    
+
     return { workId, tasks: results.map(t => t.taskId) };
 }
 

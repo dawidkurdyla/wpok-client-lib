@@ -85,7 +85,7 @@ async function* planBatch(spec) {
             continue;
         }
         const bn = path.basename(item.key);
-        pack.push({ remote: { bucket: item.bucket, key: item.key }, basename: bn });
+        pack.push({ remote: { bucket: item.bucket, key: item.key }});
 
         if (pack.length >= maxPerTask) {
             yield packToPlan(pack, spec, base);
@@ -98,9 +98,9 @@ async function* planBatch(spec) {
 }
 
 function packToPlan(pack, spec, base) {
-    const localInputs = pack.map(p => ({ name: p.basename, workflow_input: true }));
-    const basenames = pack.map(p => p.basename);
-    const args = expandInputPlaceholders(spec.args || [], basenames);
+    const localInputs = pack.map(p => ({ name: p.remote.key, workflow_input: true }));
+    const inputKeys = pack.map(p => p.remote.key);
+    const args = expandInputPlaceholders(spec.args || [], inputKeys);
     return {
         inputs: pack.map(p => ({ bucket: p.remote.bucket, key: p.remote.key })),
         localInputs,
