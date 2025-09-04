@@ -87,7 +87,7 @@
                       "required": ["type", "url"],
                       "properties": {
                         "type": { "type": "string", "const": "s3" },
-                        "url":  { "type": "string", "pattern": "^s3://[^/]+/.+/$" },
+                        "url":  { "type": "string", "pattern": "^s3://[^/]+/(?:.*[^/]/)?$" },
                         "include": { "type": "array", "items": { "type": "string" }, "default": [] },
                         "exclude": { "type": "array", "items": { "type": "string" }, "default": [] },
                         "recursive": { "type": "boolean", "default": true },
@@ -108,7 +108,7 @@
                     "required": ["type", "url"],
                     "properties": {
                       "type": { "type": "string", "const": "s3" },
-                      "url":  { "type": "string", "pattern": "^s3://[^/]+/.+/$" },
+                      "url":  { "type": "string", "pattern": "^s3://[^/]+/(?:.*[^/]/)?$" },
                       "overwrite": { "type": "boolean", "default": false },
                       "layout": { "type": "string" }
                     },
